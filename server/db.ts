@@ -1,4 +1,6 @@
-import mongoose from "mongoose";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { neon } from "@neondatabase/serverless";
+import * as schema from "../shared/schema";
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -6,35 +8,19 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-// MongoDB connection
+// PostgreSQL connection
+const sql = neon(process.env.DATABASE_URL);
+export const db = drizzle(sql, { schema });
+
 export const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.DATABASE_URL);
-    console.log("Connected to MongoDB successfully");
+    // Test the connection
+    await sql`SELECT 1`;
+    console.log("Connected to PostgreSQL successfully");
   } catch (error) {
-    console.error("MongoDB connection error:", error);
+    console.error("PostgreSQL connection error:", error);
     process.exit(1);
   }
 };
 
-// Handle connection events
-mongoose.connection.on("connected", () => {
-  console.log("Mongoose connected to MongoDB");
-});
-
-mongoose.connection.on("error", (err) => {
-  console.error("Mongoose connection error:", err);
-});
-
-mongoose.connection.on("disconnected", () => {
-  console.log("Mongoose disconnected from MongoDB");
-});
-
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  await mongoose.connection.close();
-  console.log("MongoDB connection closed through app termination");
-  process.exit(0);
-});
-
-export default mongoose;
+export default db;

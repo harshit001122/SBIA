@@ -7,7 +7,7 @@ import {
   type IActivity, type InsertActivity, type INotification, type InsertNotification
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, gte, sql, count, lte } from "drizzle-orm";
+import { eq, and, desc, gte, sql } from "drizzle-orm";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
@@ -181,8 +181,8 @@ export class PostgreSQLStorage implements IStorage {
   // Integration methods
   async getCompanyIntegrations(companyId: string): Promise<IIntegration[]> {
     try {
-      const result = await db.select().from(integrations).where(eq(integrations.companyId, companyId));
-      return result;
+      const integrations = await Integration.find({ companyId: new mongoose.Types.ObjectId(companyId) });
+      return integrations;
     } catch (error) {
       console.error('Error getting company integrations:', error);
       return [];
@@ -191,8 +191,8 @@ export class PostgreSQLStorage implements IStorage {
 
   async getIntegration(id: string): Promise<IIntegration | undefined> {
     try {
-      const result = await db.select().from(integrations).where(eq(integrations.id, id)).limit(1);
-      return result[0] || undefined;
+      const integration = await Integration.findById(id);
+      return integration || undefined;
     } catch (error) {
       console.error('Error getting integration:', error);
       return undefined;
@@ -201,12 +201,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createIntegration(insertIntegration: InsertIntegration): Promise<IIntegration> {
     try {
-      const result = await db.insert(integrations).values({
+      const integrationData = {
         ...insertIntegration,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        companyId: new mongoose.Types.ObjectId(insertIntegration.companyId)
+      };
+      const integration = new Integration(integrationData);
+      await integration.save();
+      return integration;
     } catch (error) {
       console.error('Error creating integration:', error);
       throw error;
@@ -215,11 +216,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async updateIntegration(id: string, updates: Partial<InsertIntegration>): Promise<IIntegration | undefined> {
     try {
-      const result = await db.update(integrations)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(integrations.id, id))
-        .returning();
-      return result[0] || undefined;
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const integration = await Integration.findByIdAndUpdate(id, updateData, { new: true });
+      return integration || undefined;
     } catch (error) {
       console.error('Error updating integration:', error);
       return undefined;
@@ -228,8 +231,8 @@ export class PostgreSQLStorage implements IStorage {
 
   async deleteIntegration(id: string): Promise<boolean> {
     try {
-      const result = await db.delete(integrations).where(eq(integrations.id, id)).returning();
-      return result.length > 0;
+      const result = await Integration.findByIdAndDelete(id);
+      return !!result;
     } catch (error) {
       console.error('Error deleting integration:', error);
       return false;
@@ -239,8 +242,8 @@ export class PostgreSQLStorage implements IStorage {
   // KPI methods
   async getCompanyKpiMetrics(companyId: string): Promise<IKpiMetric[]> {
     try {
-      const result = await db.select().from(kpiMetrics).where(eq(kpiMetrics.companyId, companyId));
-      return result;
+      const kpiMetrics = await KpiMetric.find({ companyId: new mongoose.Types.ObjectId(companyId) });
+      return kpiMetrics;
     } catch (error) {
       console.error('Error getting company KPI metrics:', error);
       return [];
@@ -249,12 +252,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createKpiMetric(insertMetric: InsertKpiMetric): Promise<IKpiMetric> {
     try {
-      const result = await db.insert(kpiMetrics).values({
+      const metricData = {
         ...insertMetric,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        companyId: new mongoose.Types.ObjectId(insertMetric.companyId)
+      };
+      const metric = new KpiMetric(metricData);
+      await metric.save();
+      return metric;
     } catch (error) {
       console.error('Error creating KPI metric:', error);
       throw error;
@@ -263,11 +267,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async updateKpiMetric(id: string, updates: Partial<InsertKpiMetric>): Promise<IKpiMetric | undefined> {
     try {
-      const result = await db.update(kpiMetrics)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(kpiMetrics.id, id))
-        .returning();
-      return result[0] || undefined;
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const metric = await KpiMetric.findByIdAndUpdate(id, updateData, { new: true });
+      return metric || undefined;
     } catch (error) {
       console.error('Error updating KPI metric:', error);
       return undefined;
@@ -277,14 +283,12 @@ export class PostgreSQLStorage implements IStorage {
   // Chart data methods
   async getCompanyChartData(companyId: string, chartType?: string): Promise<IChartData[]> {
     try {
-      let query = db.select().from(chartData).where(eq(chartData.companyId, companyId));
-      
+      const filter: any = { companyId: new mongoose.Types.ObjectId(companyId) };
       if (chartType) {
-        query = query.where(eq(chartData.chartType, chartType));
+        filter.chartType = chartType;
       }
-      
-      const result = await query.orderBy(desc(chartData.date));
-      return result;
+      const chartData = await ChartData.find(filter).sort({ date: 1 });
+      return chartData;
     } catch (error) {
       console.error('Error getting company chart data:', error);
       return [];
@@ -293,12 +297,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createChartData(insertData: InsertChartData): Promise<IChartData> {
     try {
-      const result = await db.insert(chartData).values({
+      const chartDataDoc = {
         ...insertData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        companyId: new mongoose.Types.ObjectId(insertData.companyId)
+      };
+      const data = new ChartData(chartDataDoc);
+      await data.save();
+      return data;
     } catch (error) {
       console.error('Error creating chart data:', error);
       throw error;
@@ -307,19 +312,16 @@ export class PostgreSQLStorage implements IStorage {
 
   async getRevenueChartData(companyId: string, days: number = 30): Promise<IChartData[]> {
     try {
-      const daysAgo = new Date();
-      daysAgo.setDate(daysAgo.getDate() - days);
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
       
-      const result = await db.select()
-        .from(chartData)
-        .where(and(
-          eq(chartData.companyId, companyId),
-          eq(chartData.chartType, 'revenue'),
-          gte(chartData.date, daysAgo)
-        ))
-        .orderBy(chartData.date);
+      const chartData = await ChartData.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        chartType: 'revenue',
+        date: { $gte: startDate }
+      }).sort({ date: 1 });
       
-      return result;
+      return chartData;
     } catch (error) {
       console.error('Error getting revenue chart data:', error);
       return [];
@@ -328,15 +330,12 @@ export class PostgreSQLStorage implements IStorage {
 
   async getUserChartData(companyId: string): Promise<IChartData[]> {
     try {
-      const result = await db.select()
-        .from(chartData)
-        .where(and(
-          eq(chartData.companyId, companyId),
-          eq(chartData.chartType, 'users')
-        ))
-        .orderBy(chartData.date);
+      const chartData = await ChartData.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        chartType: 'users'
+      }).sort({ date: 1 });
       
-      return result;
+      return chartData;
     } catch (error) {
       console.error('Error getting user chart data:', error);
       return [];
@@ -346,12 +345,10 @@ export class PostgreSQLStorage implements IStorage {
   // AI recommendations methods
   async getCompanyAiRecommendations(companyId: string): Promise<IAiRecommendation[]> {
     try {
-      const result = await db.select()
-        .from(aiRecommendations)
-        .where(eq(aiRecommendations.companyId, companyId))
-        .orderBy(desc(aiRecommendations.createdAt));
-      
-      return result;
+      const recommendations = await AiRecommendation.find({ 
+        companyId: new mongoose.Types.ObjectId(companyId) 
+      }).sort({ confidence: -1 });
+      return recommendations;
     } catch (error) {
       console.error('Error getting company AI recommendations:', error);
       return [];
@@ -360,12 +357,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createAiRecommendation(insertRecommendation: InsertAiRecommendation): Promise<IAiRecommendation> {
     try {
-      const result = await db.insert(aiRecommendations).values({
+      const recommendationData = {
         ...insertRecommendation,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        companyId: new mongoose.Types.ObjectId(insertRecommendation.companyId)
+      };
+      const recommendation = new AiRecommendation(recommendationData);
+      await recommendation.save();
+      return recommendation;
     } catch (error) {
       console.error('Error creating AI recommendation:', error);
       throw error;
@@ -374,11 +372,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async updateAiRecommendation(id: string, updates: Partial<InsertAiRecommendation>): Promise<IAiRecommendation | undefined> {
     try {
-      const result = await db.update(aiRecommendations)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(aiRecommendations.id, id))
-        .returning();
-      return result[0] || undefined;
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const recommendation = await AiRecommendation.findByIdAndUpdate(id, updateData, { new: true });
+      return recommendation || undefined;
     } catch (error) {
       console.error('Error updating AI recommendation:', error);
       return undefined;
@@ -388,13 +388,14 @@ export class PostgreSQLStorage implements IStorage {
   // Activity methods
   async getCompanyActivities(companyId: string, limit: number = 10): Promise<IActivity[]> {
     try {
-      const result = await db.select()
-        .from(activities)
-        .where(eq(activities.companyId, companyId))
-        .orderBy(desc(activities.createdAt))
-        .limit(limit);
+      const activities = await Activity.find({ 
+        companyId: new mongoose.Types.ObjectId(companyId) 
+      })
+      .populate('userId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(limit);
       
-      return result;
+      return activities;
     } catch (error) {
       console.error('Error getting company activities:', error);
       return [];
@@ -403,12 +404,14 @@ export class PostgreSQLStorage implements IStorage {
 
   async createActivity(insertActivity: InsertActivity): Promise<IActivity> {
     try {
-      const result = await db.insert(activities).values({
+      const activityData = {
         ...insertActivity,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        companyId: new mongoose.Types.ObjectId(insertActivity.companyId),
+        userId: new mongoose.Types.ObjectId(insertActivity.userId)
+      };
+      const activity = new Activity(activityData);
+      await activity.save();
+      return activity;
     } catch (error) {
       console.error('Error creating activity:', error);
       throw error;
@@ -418,12 +421,11 @@ export class PostgreSQLStorage implements IStorage {
   // Notification methods
   async getUserNotifications(userId: string): Promise<INotification[]> {
     try {
-      const result = await db.select()
-        .from(notifications)
-        .where(eq(notifications.userId, userId))
-        .orderBy(desc(notifications.createdAt));
+      const notifications = await Notification.find({ 
+        userId: new mongoose.Types.ObjectId(userId) 
+      }).sort({ createdAt: -1 });
       
-      return result;
+      return notifications;
     } catch (error) {
       console.error('Error getting user notifications:', error);
       return [];
@@ -432,12 +434,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createNotification(insertNotification: InsertNotification): Promise<INotification> {
     try {
-      const result = await db.insert(notifications).values({
+      const notificationData = {
         ...insertNotification,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+        userId: new mongoose.Types.ObjectId(insertNotification.userId)
+      };
+      const notification = new Notification(notificationData);
+      await notification.save();
+      return notification;
     } catch (error) {
       console.error('Error creating notification:', error);
       throw error;
@@ -446,15 +449,11 @@ export class PostgreSQLStorage implements IStorage {
 
   async markNotificationAsRead(id: string): Promise<boolean> {
     try {
-      const result = await db.update(notifications)
-        .set({ 
-          isRead: true, 
-          readAt: new Date() 
-        })
-        .where(eq(notifications.id, id))
-        .returning();
-      
-      return result.length > 0;
+      const result = await Notification.findByIdAndUpdate(id, { 
+        isRead: true, 
+        readAt: new Date() 
+      });
+      return !!result;
     } catch (error) {
       console.error('Error marking notification as read:', error);
       return false;
@@ -463,14 +462,11 @@ export class PostgreSQLStorage implements IStorage {
 
   async getUnreadNotificationCount(userId: string): Promise<number> {
     try {
-      const result = await db.select({ count: count() })
-        .from(notifications)
-        .where(and(
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false)
-        ));
-      
-      return result[0]?.count || 0;
+      const count = await Notification.countDocuments({ 
+        userId: new mongoose.Types.ObjectId(userId), 
+        isRead: false 
+      });
+      return count;
     } catch (error) {
       console.error('Error getting unread notification count:', error);
       return 0;

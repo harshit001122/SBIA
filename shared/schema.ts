@@ -1,293 +1,239 @@
-import mongoose, { Schema, Document } from "mongoose";
+import { pgTable, text, boolean, timestamp, uuid, integer, decimal, jsonb } from "drizzle-orm/pg-core";
+import { relations, sql } from "drizzle-orm";
+import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User Interface and Schema
-export interface IUser extends Document {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-  jobTitle?: string;
-  role: string;
-  isActive: boolean;
-  lastActiveAt?: Date;
-  companyId?: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const userSchema = new Schema<IUser>({
-  email: { type: String, required: true, unique: true, maxlength: 255 },
-  password: { type: String, required: true },
-  firstName: { type: String, required: true, maxlength: 100 },
-  lastName: { type: String, required: true, maxlength: 100 },
-  jobTitle: { type: String, maxlength: 100 },
-  role: { type: String, required: true, default: "member", maxlength: 50 },
-  isActive: { type: Boolean, required: true, default: true },
-  lastActiveAt: { type: Date, default: Date.now },
-  companyId: { type: Schema.Types.ObjectId, ref: "Company" },
-}, { timestamps: true });
-
-export const User = mongoose.model<IUser>("User", userSchema);
-
-// Company Interface and Schema
-export interface ICompany extends Document {
-  name: string;
-  industry?: string;
-  website?: string;
-  description?: string;
-  logo?: string;
-  settings: any;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const companySchema = new Schema<ICompany>({
-  name: { type: String, required: true, maxlength: 200 },
-  industry: { type: String, maxlength: 100 },
-  website: { type: String, maxlength: 255 },
-  description: { type: String },
-  logo: { type: String },
-  settings: { type: Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
-
-export const Company = mongoose.model<ICompany>("Company", companySchema);
-
-// Integration Interface and Schema
-export interface IIntegration extends Document {
-  companyId: mongoose.Types.ObjectId;
-  name: string;
-  type: string;
-  provider: string;
-  status: string;
-  config: any;
-  credentials: any;
-  lastSyncAt?: Date;
-  dataPoints: number;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const integrationSchema = new Schema<IIntegration>({
-  companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
-  name: { type: String, required: true, maxlength: 100 },
-  type: { type: String, required: true, maxlength: 50 },
-  provider: { type: String, required: true, maxlength: 100 },
-  status: { type: String, required: true, default: "disconnected", maxlength: 20 },
-  config: { type: Schema.Types.Mixed, default: {} },
-  credentials: { type: Schema.Types.Mixed, default: {} },
-  lastSyncAt: { type: Date },
-  dataPoints: { type: Number, default: 0 },
-}, { timestamps: true });
-
-export const Integration = mongoose.model<IIntegration>("Integration", integrationSchema);
-
-// KPI Metric Interface and Schema
-export interface IKpiMetric extends Document {
-  companyId: mongoose.Types.ObjectId;
-  name: string;
-  value: string;
-  previousValue?: string;
-  changePercentage?: string;
-  period: string;
-  icon: string;
-  color: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const kpiMetricSchema = new Schema<IKpiMetric>({
-  companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
-  name: { type: String, required: true, maxlength: 100 },
-  value: { type: String, required: true, maxlength: 50 },
-  previousValue: { type: String, maxlength: 50 },
-  changePercentage: { type: String, maxlength: 20 },
-  period: { type: String, required: true, maxlength: 50 },
-  icon: { type: String, required: true, maxlength: 50 },
-  color: { type: String, required: true, maxlength: 20 },
-}, { timestamps: true });
-
-export const KpiMetric = mongoose.model<IKpiMetric>("KpiMetric", kpiMetricSchema);
-
-// Chart Data Interface and Schema
-export interface IChartData extends Document {
-  companyId: mongoose.Types.ObjectId;
-  chartType: string;
-  label: string;
-  value: number;
-  date: Date;
-  metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const chartDataSchema = new Schema<IChartData>({
-  companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
-  chartType: { type: String, required: true, maxlength: 50 },
-  label: { type: String, required: true, maxlength: 100 },
-  value: { type: Number, required: true },
-  date: { type: Date, required: true },
-  metadata: { type: Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
-
-export const ChartData = mongoose.model<IChartData>("ChartData", chartDataSchema);
-
-// AI Recommendation Interface and Schema
-export interface IAiRecommendation extends Document {
-  companyId: mongoose.Types.ObjectId;
-  title: string;
-  description: string;
-  category: string;
-  priority: string;
-  confidence: number;
-  isImplemented: boolean;
-  implementedAt?: Date;
-  estimatedImpact: string;
-  requiredActions: string[];
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const aiRecommendationSchema = new Schema<IAiRecommendation>({
-  companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
-  title: { type: String, required: true, maxlength: 200 },
-  description: { type: String, required: true },
-  category: { type: String, required: true, maxlength: 100 },
-  priority: { type: String, required: true, maxlength: 20 },
-  confidence: { type: Number, required: true, min: 0, max: 100 },
-  isImplemented: { type: Boolean, required: true, default: false },
-  implementedAt: { type: Date },
-  estimatedImpact: { type: String, required: true, maxlength: 100 },
-  requiredActions: [{ type: String }],
-}, { timestamps: true });
-
-export const AiRecommendation = mongoose.model<IAiRecommendation>("AiRecommendation", aiRecommendationSchema);
-
-// Activity Interface and Schema
-export interface IActivity extends Document {
-  companyId: mongoose.Types.ObjectId;
-  userId: mongoose.Types.ObjectId;
-  type: string;
-  description: string;
-  metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const activitySchema = new Schema<IActivity>({
-  companyId: { type: Schema.Types.ObjectId, ref: "Company", required: true },
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  type: { type: String, required: true, maxlength: 50 },
-  description: { type: String, required: true },
-  metadata: { type: Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
-
-export const Activity = mongoose.model<IActivity>("Activity", activitySchema);
-
-// Notification Interface and Schema
-export interface INotification extends Document {
-  userId: mongoose.Types.ObjectId;
-  title: string;
-  message: string;
-  type: string;
-  isRead: boolean;
-  readAt?: Date;
-  metadata: any;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-const notificationSchema = new Schema<INotification>({
-  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-  title: { type: String, required: true, maxlength: 200 },
-  message: { type: String, required: true },
-  type: { type: String, required: true, maxlength: 50 },
-  isRead: { type: Boolean, required: true, default: false },
-  readAt: { type: Date },
-  metadata: { type: Schema.Types.Mixed, default: {} },
-}, { timestamps: true });
-
-export const Notification = mongoose.model<INotification>("Notification", notificationSchema);
-
-// Zod Validation Schemas
-export const insertUserSchema = z.object({
-  email: z.string().email().max(255),
-  password: z.string().min(6),
-  firstName: z.string().min(1).max(100),
-  lastName: z.string().min(1).max(100),
-  jobTitle: z.string().max(100).optional(),
-  role: z.string().max(50).default("member"),
-  isActive: z.boolean().default(true),
-  companyId: z.string().optional(),
+// Users table
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  password: text("password").notNull(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  jobTitle: text("job_title"),
+  role: text("role").notNull().default("member"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }).defaultNow(),
+  companyId: uuid("company_id").references(() => companies.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertCompanySchema = z.object({
-  name: z.string().min(1).max(200),
-  industry: z.string().max(100).optional(),
-  website: z.string().max(255).optional(),
-  description: z.string().optional(),
-  logo: z.string().optional(),
-  settings: z.any().default({}),
+export const usersRelations = relations(users, ({ one, many }) => ({
+  company: one(companies, {
+    fields: [users.companyId],
+    references: [companies.id],
+  }),
+  activities: many(activities),
+  notifications: many(notifications),
+}));
+
+// Companies table
+export const companies = pgTable("companies", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  industry: text("industry"),
+  website: text("website"),
+  description: text("description"),
+  logo: text("logo"),
+  settings: jsonb("settings").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertIntegrationSchema = z.object({
-  companyId: z.string(),
-  name: z.string().min(1).max(100),
-  type: z.string().min(1).max(50),
-  provider: z.string().min(1).max(100),
-  status: z.string().max(20).default("disconnected"),
-  config: z.any().default({}),
-  credentials: z.any().default({}),
-  dataPoints: z.number().default(0),
+export const companiesRelations = relations(companies, ({ many }) => ({
+  users: many(users),
+  integrations: many(integrations),
+  kpiMetrics: many(kpiMetrics),
+  chartData: many(chartData),
+  aiRecommendations: many(aiRecommendations),
+  activities: many(activities),
+}));
+
+// Integrations table
+export const integrations = pgTable("integrations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(),
+  type: text("type").notNull(),
+  provider: text("provider").notNull(),
+  status: text("status").notNull().default("disconnected"),
+  config: jsonb("config").default({}),
+  credentials: jsonb("credentials").default({}),
+  lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+  dataPoints: integer("data_points").default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertKpiMetricSchema = z.object({
-  companyId: z.string(),
-  name: z.string().min(1).max(100),
-  value: z.string().min(1).max(50),
-  previousValue: z.string().max(50).optional(),
-  changePercentage: z.string().max(20).optional(),
-  period: z.string().min(1).max(50),
-  icon: z.string().min(1).max(50),
-  color: z.string().min(1).max(20),
+export const integrationsRelations = relations(integrations, ({ one }) => ({
+  company: one(companies, {
+    fields: [integrations.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// KPI Metrics table
+export const kpiMetrics = pgTable("kpi_metrics", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  name: text("name").notNull(),
+  value: text("value").notNull(),
+  previousValue: text("previous_value"),
+  changePercentage: text("change_percentage"),
+  period: text("period").notNull(),
+  icon: text("icon").notNull(),
+  color: text("color").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertChartDataSchema = z.object({
-  companyId: z.string(),
-  chartType: z.string().min(1).max(50),
-  label: z.string().min(1).max(100),
-  value: z.number(),
-  date: z.date(),
-  metadata: z.any().default({}),
+export const kpiMetricsRelations = relations(kpiMetrics, ({ one }) => ({
+  company: one(companies, {
+    fields: [kpiMetrics.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// Chart Data table
+export const chartData = pgTable("chart_data", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  chartType: text("chart_type").notNull(),
+  label: text("label").notNull(),
+  value: decimal("value").notNull(),
+  date: timestamp("date", { withTimezone: true }).notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertAiRecommendationSchema = z.object({
-  companyId: z.string(),
-  title: z.string().min(1).max(200),
-  description: z.string().min(1),
-  category: z.string().min(1).max(100),
-  priority: z.string().min(1).max(20),
-  confidence: z.number().min(0).max(100),
-  isImplemented: z.boolean().default(false),
-  estimatedImpact: z.string().min(1).max(100),
-  requiredActions: z.array(z.string()),
+export const chartDataRelations = relations(chartData, ({ one }) => ({
+  company: one(companies, {
+    fields: [chartData.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// AI Recommendations table
+export const aiRecommendations = pgTable("ai_recommendations", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(),
+  priority: text("priority").notNull(),
+  confidence: integer("confidence").notNull(),
+  isImplemented: boolean("is_implemented").notNull().default(false),
+  implementedAt: timestamp("implemented_at", { withTimezone: true }),
+  estimatedImpact: text("estimated_impact").notNull(),
+  requiredActions: text("required_actions").array(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertActivitySchema = z.object({
-  companyId: z.string(),
-  userId: z.string(),
-  type: z.string().min(1).max(50),
-  description: z.string().min(1),
-  metadata: z.any().default({}),
+export const aiRecommendationsRelations = relations(aiRecommendations, ({ one }) => ({
+  company: one(companies, {
+    fields: [aiRecommendations.companyId],
+    references: [companies.id],
+  }),
+}));
+
+// Activities table
+export const activities = pgTable("activities", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: uuid("company_id").notNull().references(() => companies.id),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  type: text("type").notNull(),
+  description: text("description").notNull(),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const insertNotificationSchema = z.object({
-  userId: z.string(),
-  title: z.string().min(1).max(200),
-  message: z.string().min(1),
-  type: z.string().min(1).max(50),
-  isRead: z.boolean().default(false),
-  metadata: z.any().default({}),
+export const activitiesRelations = relations(activities, ({ one }) => ({
+  company: one(companies, {
+    fields: [activities.companyId],
+    references: [companies.id],
+  }),
+  user: one(users, {
+    fields: [activities.userId],
+    references: [users.id],
+  }),
+}));
+
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: uuid("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull(),
+  isRead: boolean("is_read").notNull().default(false),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  metadata: jsonb("metadata").default({}),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  user: one(users, {
+    fields: [notifications.userId],
+    references: [users.id],
+  }),
+}));
+
+// Insert schemas using Drizzle
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastActiveAt: true,
+});
+
+export const insertCompanySchema = createInsertSchema(companies).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertIntegrationSchema = createInsertSchema(integrations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastSyncAt: true,
+});
+
+export const insertKpiMetricSchema = createInsertSchema(kpiMetrics).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertChartDataSchema = createInsertSchema(chartData).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAiRecommendationSchema = createInsertSchema(aiRecommendations).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  implementedAt: true,
+});
+
+export const insertActivitySchema = createInsertSchema(activities).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertNotificationSchema = createInsertSchema(notifications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  readAt: true,
 });
 
 export const loginSchema = z.object({
@@ -302,22 +248,147 @@ export const registerSchema = insertUserSchema.extend({
   path: ["confirmPassword"],
 });
 
-// Type exports (using the interfaces as types)
+// Type exports using Drizzle types
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = IUser;
+export type SelectUser = typeof users.$inferSelect;
+export type User = SelectUser;
+
 export type InsertCompany = z.infer<typeof insertCompanySchema>;
-export type Company = ICompany;
+export type SelectCompany = typeof companies.$inferSelect;
+export type Company = SelectCompany;
+
 export type InsertIntegration = z.infer<typeof insertIntegrationSchema>;
-export type Integration = IIntegration;
+export type SelectIntegration = typeof integrations.$inferSelect;
+export type Integration = SelectIntegration;
+
 export type InsertKpiMetric = z.infer<typeof insertKpiMetricSchema>;
-export type KpiMetric = IKpiMetric;
+export type SelectKpiMetric = typeof kpiMetrics.$inferSelect;
+export type KpiMetric = SelectKpiMetric;
+
 export type InsertChartData = z.infer<typeof insertChartDataSchema>;
-export type ChartData = IChartData;
+export type SelectChartData = typeof chartData.$inferSelect;
+export type ChartData = SelectChartData;
+
 export type InsertAiRecommendation = z.infer<typeof insertAiRecommendationSchema>;
-export type AiRecommendation = IAiRecommendation;
+export type SelectAiRecommendation = typeof aiRecommendations.$inferSelect;
+export type AiRecommendation = SelectAiRecommendation;
+
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
-export type Activity = IActivity;
+export type SelectActivity = typeof activities.$inferSelect;
+export type Activity = SelectActivity;
+
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
-export type Notification = INotification;
+export type SelectNotification = typeof notifications.$inferSelect;
+export type Notification = SelectNotification;
+
 export type LoginData = z.infer<typeof loginSchema>;
 export type RegisterData = z.infer<typeof registerSchema>;
+
+// Legacy interface types for compatibility (these maintain the original interfaces for the storage layer)
+export interface IUser {
+  id: string;
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  jobTitle?: string;
+  role: string;
+  isActive: boolean;
+  lastActiveAt?: Date;
+  companyId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ICompany {
+  id: string;
+  name: string;
+  industry?: string;
+  website?: string;
+  description?: string;
+  logo?: string;
+  settings: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IIntegration {
+  id: string;
+  companyId: string;
+  name: string;
+  type: string;
+  provider: string;
+  status: string;
+  config: any;
+  credentials: any;
+  lastSyncAt?: Date;
+  dataPoints: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IKpiMetric {
+  id: string;
+  companyId: string;
+  name: string;
+  value: string;
+  previousValue?: string;
+  changePercentage?: string;
+  period: string;
+  icon: string;
+  color: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IChartData {
+  id: string;
+  companyId: string;
+  chartType: string;
+  label: string;
+  value: string;
+  date: Date;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IAiRecommendation {
+  id: string;
+  companyId: string;
+  title: string;
+  description: string;
+  category: string;
+  priority: string;
+  confidence: number;
+  isImplemented: boolean;
+  implementedAt?: Date;
+  estimatedImpact: string;
+  requiredActions: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IActivity {
+  id: string;
+  companyId: string;
+  userId: string;
+  type: string;
+  description: string;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface INotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: string;
+  isRead: boolean;
+  readAt?: Date;
+  metadata: any;
+  createdAt: Date;
+  updatedAt: Date;
+}
