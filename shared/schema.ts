@@ -241,8 +241,13 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-export const registerSchema = insertUserSchema.extend({
+export const registerSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string().min(6),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  jobTitle: z.string().optional(),
   companyName: z.string().min(1, "Company name is required"),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",

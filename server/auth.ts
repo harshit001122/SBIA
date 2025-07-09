@@ -53,7 +53,7 @@ export function setupAuth(app: Express) {
         if (!user || !(await comparePasswords(password, user.password))) {
           return done(null, false);
         } else {
-          await storage.updateUserLastActive(user._id.toString());
+          await storage.updateUserLastActive(user.id);
           return done(null, user);
         }
       } catch (error) {
@@ -62,7 +62,7 @@ export function setupAuth(app: Express) {
     }),
   );
 
-  passport.serializeUser((user, done) => done(null, user._id.toString()));
+  passport.serializeUser((user, done) => done(null, user.id));
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
@@ -84,10 +84,6 @@ export function setupAuth(app: Express) {
       // Create company first
       const company = await storage.createCompany({
         name: validatedData.companyName,
-        industry: null,
-        website: null,
-        description: null,
-        logo: null,
         settings: {},
       });
 
@@ -97,7 +93,7 @@ export function setupAuth(app: Express) {
         password: await hashPassword(validatedData.password),
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
-        jobTitle: validatedData.jobTitle || null,
+        jobTitle: validatedData.jobTitle,
         role: "admin", // First user is admin
         isActive: true,
         companyId: company.id,
@@ -109,7 +105,6 @@ export function setupAuth(app: Express) {
         userId: user.id,
         type: "user_registered",
         description: `${user.firstName} ${user.lastName} created account and company`,
-        source: "System",
         metadata: {},
       });
 
@@ -119,7 +114,7 @@ export function setupAuth(app: Express) {
         title: "Welcome to SBIA Platform!",
         message: "Your account has been created successfully. Start by connecting your first integration.",
         type: "success",
-        isRead: false,
+        metadata: {},
       });
 
       req.login(user, (err) => {
