@@ -84,7 +84,6 @@ export function setupAuth(app: Express) {
       // Create company first
       const company = await storage.createCompany({
         name: validatedData.companyName,
-        settings: {},
       });
 
       // Create user with company reference
@@ -105,7 +104,6 @@ export function setupAuth(app: Express) {
         userId: user.id,
         type: "user_registered",
         description: `${user.firstName} ${user.lastName} created account and company`,
-        metadata: {},
       });
 
       // Create welcome notification
@@ -114,7 +112,6 @@ export function setupAuth(app: Express) {
         title: "Welcome to SBIA Platform!",
         message: "Your account has been created successfully. Start by connecting your first integration.",
         type: "success",
-        metadata: {},
       });
 
       req.login(user, (err) => {

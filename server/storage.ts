@@ -8,8 +8,12 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, sql, count, lte } from "drizzle-orm";
+import { neon } from "@neondatabase/serverless";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+
+// Direct SQL connection for problematic queries
+const directSql = neon(process.env.DATABASE_URL!);
 
 const MemoryStore = createMemoryStore(session);
 
@@ -75,8 +79,10 @@ export class PostgreSQLStorage implements IStorage {
   // User methods
   async getUser(id: string): Promise<IUser | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.id, id)).limit(1);
-      return result[0] || undefined;
+      const result = await directSql`
+        SELECT * FROM users WHERE id = ${id} LIMIT 1
+      `;
+      return result[0] as IUser || undefined;
     } catch (error) {
       console.error('Error getting user:', error);
       return undefined;
@@ -85,8 +91,10 @@ export class PostgreSQLStorage implements IStorage {
 
   async getUserByEmail(email: string): Promise<IUser | undefined> {
     try {
-      const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
-      return result[0] || undefined;
+      const result = await directSql`
+        SELECT * FROM users WHERE email = ${email} LIMIT 1
+      `;
+      return result[0] as IUser || undefined;
     } catch (error) {
       console.error('Error getting user by email:', error);
       return undefined;
@@ -95,12 +103,13 @@ export class PostgreSQLStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<IUser> {
     try {
-      const result = await db.insert(users).values({
-        ...insertUser,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+      const result = await directSql`
+        INSERT INTO users (email, password, first_name, last_name, job_title, role, is_active, company_id)
+        VALUES (${insertUser.email}, ${insertUser.password}, ${insertUser.firstName}, ${insertUser.lastName}, 
+                ${insertUser.jobTitle}, ${insertUser.role}, ${insertUser.isActive}, ${insertUser.companyId})
+        RETURNING *
+      `;
+      return result[0] as IUser;
     } catch (error) {
       console.error('Error creating user:', error);
       throw error;
@@ -143,12 +152,11 @@ export class PostgreSQLStorage implements IStorage {
 
   async createCompany(insertCompany: InsertCompany): Promise<ICompany> {
     try {
-      const result = await db.insert(companies).values({
-        ...insertCompany,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+      const result = await directSql`
+        INSERT INTO companies (name) VALUES (${insertCompany.name})
+        RETURNING id, name, industry, website, description, logo, settings, created_at, updated_at
+      `;
+      return result[0] as ICompany;
     } catch (error) {
       console.error('Error creating company:', error);
       throw error;
@@ -403,12 +411,12 @@ export class PostgreSQLStorage implements IStorage {
 
   async createActivity(insertActivity: InsertActivity): Promise<IActivity> {
     try {
-      const result = await db.insert(activities).values({
-        ...insertActivity,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+      const result = await directSql`
+        INSERT INTO activities (company_id, user_id, type, description)
+        VALUES (${insertActivity.companyId}, ${insertActivity.userId}, ${insertActivity.type}, ${insertActivity.description})
+        RETURNING *
+      `;
+      return result[0] as IActivity;
     } catch (error) {
       console.error('Error creating activity:', error);
       throw error;
@@ -432,12 +440,12 @@ export class PostgreSQLStorage implements IStorage {
 
   async createNotification(insertNotification: InsertNotification): Promise<INotification> {
     try {
-      const result = await db.insert(notifications).values({
-        ...insertNotification,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }).returning();
-      return result[0];
+      const result = await directSql`
+        INSERT INTO notifications (user_id, title, message, type)
+        VALUES (${insertNotification.userId}, ${insertNotification.title}, ${insertNotification.message}, ${insertNotification.type})
+        RETURNING *
+      `;
+      return result[0] as INotification;
     } catch (error) {
       console.error('Error creating notification:', error);
       throw error;

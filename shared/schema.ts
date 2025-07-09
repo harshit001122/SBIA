@@ -36,7 +36,7 @@ export const companies = pgTable("companies", {
   website: text("website"),
   description: text("description"),
   logo: text("logo"),
-  settings: jsonb("settings").default({}),
+  settings: jsonb("settings").default('{}'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -58,8 +58,8 @@ export const integrations = pgTable("integrations", {
   type: text("type").notNull(),
   provider: text("provider").notNull(),
   status: text("status").notNull().default("disconnected"),
-  config: jsonb("config").default({}),
-  credentials: jsonb("credentials").default({}),
+  config: jsonb("config").default('{}'),
+  credentials: jsonb("credentials").default('{}'),
   lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
   dataPoints: integer("data_points").default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -103,7 +103,7 @@ export const chartData = pgTable("chart_data", {
   label: text("label").notNull(),
   value: decimal("value").notNull(),
   date: timestamp("date", { withTimezone: true }).notNull(),
-  metadata: jsonb("metadata").default({}),
+  metadata: jsonb("metadata").default('{}'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -146,7 +146,7 @@ export const activities = pgTable("activities", {
   userId: uuid("user_id").notNull().references(() => users.id),
   type: text("type").notNull(),
   description: text("description").notNull(),
-  metadata: jsonb("metadata").default({}),
+  metadata: jsonb("metadata").default('{}'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -171,7 +171,7 @@ export const notifications = pgTable("notifications", {
   type: text("type").notNull(),
   isRead: boolean("is_read").notNull().default(false),
   readAt: timestamp("read_at", { withTimezone: true }),
-  metadata: jsonb("metadata").default({}),
+  metadata: jsonb("metadata").default('{}'),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
