@@ -29,6 +29,7 @@ export default function AuthPage() {
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword: "",
       firstName: "",
       lastName: "",
       jobTitle: "",
@@ -263,6 +264,24 @@ export default function AuthPage() {
                               <Input
                                 type="password"
                                 placeholder="Choose a secure password"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={registerForm.control}
+                        name="confirmPassword"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Confirm Password</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="password"
+                                placeholder="Confirm your password"
                                 {...field}
                               />
                             </FormControl>
