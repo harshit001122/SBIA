@@ -139,3 +139,15 @@ Preferred communication style: Simple, everyday language.
 - **DATABASE_URL**: PostgreSQL connection string
 - **SESSION_SECRET**: Secure session signing key
 - **REPL_ID**: Optional Replit-specific configuration
+
+## Recent Changes (January 2025)
+
+### Database Migration Completed
+- **Date**: January 9, 2025
+- **Change**: Successfully migrated from MongoDB/Mongoose to PostgreSQL/Drizzle ORM
+- **Impact**: 
+  - All database operations now use PostgreSQL with type-safe Drizzle queries
+  - Improved performance and better integration with the existing tech stack
+  - Database schema is now managed through Drizzle migrations
+  - Storage layer completely rewritten for PostgreSQL compatibility
+- **Status**: ✅ Complete and operational
