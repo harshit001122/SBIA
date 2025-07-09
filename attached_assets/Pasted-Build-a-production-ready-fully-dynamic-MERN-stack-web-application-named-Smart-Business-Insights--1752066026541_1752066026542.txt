@@ -1,0 +1,75 @@
+Build a production-ready, fully dynamic MERN stack web application named "Smart Business Insights & Action Platform (SBIA)". This project is intended for launch, so no hardcoded data should be used anywhere. All data should come from real API responses and the application should be thoroughly verified for complete functionality, smooth UX, and clean architecture.
+
+Take your time to deeply verify and test every module. The final result should be a fully working system with dynamic features, proper validations, consistent error handling, optimized API integration, and responsive design.
+
+🔧 CORE REQUIREMENTS
+Remove ALL Hardcoded Values
+
+Do not use any dummy or placeholder values in components, tables, charts, dropdowns, etc.
+
+Every piece of data shown in the app must be fetched from backend APIs or stored backend data.
+
+Even filter options, chart labels, table headers, etc., should be dynamic where relevant.
+
+Ensure ALL Functionalities Work End-to-End
+
+Test every feature and user interaction thoroughly.
+
+Fix any non-working components, missing form handling, chart rendering issues, etc.
+
+All CRUD operations must work dynamically via backend API integration.
+
+State updates should reflect instantly across the UI where necessary.
+
+Make Everything Fully API-Driven
+
+Connect all UI elements to real, well-structured backend APIs.
+
+Do not simulate or mock API responses.
+
+Use async/await with error handling and loading indicators.
+
+Use Clean, Maintainable Code
+
+Split components modularly
+
+Follow industry best practices
+
+Use environment variables for all endpoints and secret keys
+
+Optimize User Experience
+
+Ensure the app is fully responsive and mobile-friendly
+
+Use clean UI/UX with proper loading states, error states, and success messages
+
+Use confirmation dialogs where needed (e.g., delete actions)
+
+Functional Areas to Include (Fully Working)
+
+Auth system (JWT, company-based access, role management)
+
+API Integrations module (Google Analytics, CRM, Ads, etc.)
+
+Dynamic dashboards with real-time chart data and insights
+
+AI-based smart recommendation panel
+
+Company profile and team management
+
+Notification system (email + in-app)
+
+Logs or sync history tracker
+
+Settings & permissions
+
+Deployment-Ready
+
+Ensure the app runs smoothly with environment files (.env)
+
+Provide a full README with setup steps
+
+Separate development and production configs
+
+Backend and frontend should be deployable independently (e.g., Vercel + Render/Hostinger)
+
