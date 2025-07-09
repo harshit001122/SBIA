@@ -26,7 +26,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const metrics = await storage.getCompanyKpiMetrics(user.companyId);
+      const metrics = await storage.getCompanyKpiMetrics(user.companyId.toString());
       res.json(metrics);
     } catch (error) {
       console.error('Error fetching KPI metrics:', error);
@@ -43,7 +43,7 @@ export function registerRoutes(app: Express): Server {
 
       const validatedData = insertKpiMetricSchema.parse({
         ...req.body,
-        companyId: user.companyId,
+        companyId: user.companyId.toString(),
       });
 
       const metric = await storage.createKpiMetric(validatedData);
@@ -62,7 +62,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { type } = req.query;
-      const chartData = await storage.getCompanyChartData(user.companyId, type as string);
+      const chartData = await storage.getCompanyChartData(user.companyId.toString(), type as string);
       res.json(chartData);
     } catch (error) {
       console.error('Error fetching chart data:', error);
@@ -78,7 +78,7 @@ export function registerRoutes(app: Express): Server {
       }
 
       const { days = 30 } = req.query;
-      const chartData = await storage.getRevenueChartData(user.companyId, Number(days));
+      const chartData = await storage.getRevenueChartData(user.companyId.toString(), Number(days));
       res.json(chartData);
     } catch (error) {
       console.error('Error fetching revenue chart data:', error);
@@ -93,7 +93,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const chartData = await storage.getUserChartData(user.companyId);
+      const chartData = await storage.getUserChartData(user.companyId.toString());
       res.json(chartData);
     } catch (error) {
       console.error('Error fetching user chart data:', error);
@@ -110,7 +110,7 @@ export function registerRoutes(app: Express): Server {
 
       const validatedData = insertChartDataSchema.parse({
         ...req.body,
-        companyId: user.companyId,
+        companyId: user.companyId.toString(),
       });
 
       const data = await storage.createChartData(validatedData);
@@ -129,7 +129,7 @@ export function registerRoutes(app: Express): Server {
         return res.status(400).json({ message: "No company associated with user" });
       }
 
-      const recommendations = await storage.getCompanyAiRecommendations(user.companyId);
+      const recommendations = await storage.getCompanyAiRecommendations(user.companyId.toString());
       res.json(recommendations);
     } catch (error) {
       console.error('Error fetching AI recommendations:', error);
@@ -146,7 +146,7 @@ export function registerRoutes(app: Express): Server {
 
       const validatedData = insertAiRecommendationSchema.parse({
         ...req.body,
-        companyId: user.companyId,
+        companyId: user.companyId.toString(),
       });
 
       const recommendation = await storage.createAiRecommendation(validatedData);

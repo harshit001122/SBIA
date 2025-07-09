@@ -1,319 +1,471 @@
-import { 
-  users, companies, integrations, kpiMetrics, chartData, 
-  aiRecommendations, activities, notifications,
-  type User, type InsertUser, type Company, type InsertCompany,
-  type Integration, type InsertIntegration, type KpiMetric, type InsertKpiMetric,
-  type ChartData, type InsertChartData, type AiRecommendation, type InsertAiRecommendation,
-  type Activity, type InsertActivity, type Notification, type InsertNotification
+import {
+  User, Company, Integration, KpiMetric, ChartData,
+  AiRecommendation, Activity, Notification,
+  type IUser, type InsertUser, type ICompany, type InsertCompany,
+  type IIntegration, type InsertIntegration, type IKpiMetric, type InsertKpiMetric,
+  type IChartData, type InsertChartData, type IAiRecommendation, type InsertAiRecommendation,
+  type IActivity, type InsertActivity, type INotification, type InsertNotification
 } from "@shared/schema";
-import { db } from "./db";
-import { eq, desc, and, count } from "drizzle-orm";
 import session from "express-session";
-import connectPg from "connect-pg-simple";
-import { pool } from "./db";
+import createMemoryStore from "memorystore";
+import mongoose from "mongoose";
 
-const PostgresSessionStore = connectPg(session);
+const MemoryStore = createMemoryStore(session);
 
 export interface IStorage {
   // User methods
-  getUser(id: number): Promise<User | undefined>;
-  getUserByEmail(email: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-  updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined>;
-  updateUserLastActive(id: number): Promise<void>;
+  getUser(id: string): Promise<IUser | undefined>;
+  getUserByEmail(email: string): Promise<IUser | undefined>;
+  createUser(user: InsertUser): Promise<IUser>;
+  updateUser(id: string, updates: Partial<InsertUser>): Promise<IUser | undefined>;
+  updateUserLastActive(id: string): Promise<void>;
 
   // Company methods
-  getCompany(id: number): Promise<Company | undefined>;
-  createCompany(company: InsertCompany): Promise<Company>;
-  updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company | undefined>;
-  getCompanyUsers(companyId: number): Promise<User[]>;
+  getCompany(id: string): Promise<ICompany | undefined>;
+  createCompany(company: InsertCompany): Promise<ICompany>;
+  updateCompany(id: string, updates: Partial<InsertCompany>): Promise<ICompany | undefined>;
+  getCompanyUsers(companyId: string): Promise<IUser[]>;
 
   // Integration methods
-  getCompanyIntegrations(companyId: number): Promise<Integration[]>;
-  getIntegration(id: number): Promise<Integration | undefined>;
-  createIntegration(integration: InsertIntegration): Promise<Integration>;
-  updateIntegration(id: number, updates: Partial<InsertIntegration>): Promise<Integration | undefined>;
-  deleteIntegration(id: number): Promise<boolean>;
+  getCompanyIntegrations(companyId: string): Promise<IIntegration[]>;
+  getIntegration(id: string): Promise<IIntegration | undefined>;
+  createIntegration(integration: InsertIntegration): Promise<IIntegration>;
+  updateIntegration(id: string, updates: Partial<InsertIntegration>): Promise<IIntegration | undefined>;
+  deleteIntegration(id: string): Promise<boolean>;
 
   // KPI methods
-  getCompanyKpiMetrics(companyId: number): Promise<KpiMetric[]>;
-  createKpiMetric(metric: InsertKpiMetric): Promise<KpiMetric>;
-  updateKpiMetric(id: number, updates: Partial<InsertKpiMetric>): Promise<KpiMetric | undefined>;
+  getCompanyKpiMetrics(companyId: string): Promise<IKpiMetric[]>;
+  createKpiMetric(metric: InsertKpiMetric): Promise<IKpiMetric>;
+  updateKpiMetric(id: string, updates: Partial<InsertKpiMetric>): Promise<IKpiMetric | undefined>;
 
   // Chart data methods
-  getCompanyChartData(companyId: number, chartType?: string): Promise<ChartData[]>;
-  createChartData(data: InsertChartData): Promise<ChartData>;
-  getRevenueChartData(companyId: number, days?: number): Promise<ChartData[]>;
-  getUserChartData(companyId: number): Promise<ChartData[]>;
+  getCompanyChartData(companyId: string, chartType?: string): Promise<IChartData[]>;
+  createChartData(data: InsertChartData): Promise<IChartData>;
+  getRevenueChartData(companyId: string, days?: number): Promise<IChartData[]>;
+  getUserChartData(companyId: string): Promise<IChartData[]>;
 
   // AI recommendations methods
-  getCompanyAiRecommendations(companyId: number): Promise<AiRecommendation[]>;
-  createAiRecommendation(recommendation: InsertAiRecommendation): Promise<AiRecommendation>;
-  updateAiRecommendation(id: number, updates: Partial<InsertAiRecommendation>): Promise<AiRecommendation | undefined>;
+  getCompanyAiRecommendations(companyId: string): Promise<IAiRecommendation[]>;
+  createAiRecommendation(recommendation: InsertAiRecommendation): Promise<IAiRecommendation>;
+  updateAiRecommendation(id: string, updates: Partial<InsertAiRecommendation>): Promise<IAiRecommendation | undefined>;
 
   // Activity methods
-  getCompanyActivities(companyId: number, limit?: number): Promise<Activity[]>;
-  createActivity(activity: InsertActivity): Promise<Activity>;
+  getCompanyActivities(companyId: string, limit?: number): Promise<IActivity[]>;
+  createActivity(activity: InsertActivity): Promise<IActivity>;
 
   // Notification methods
-  getUserNotifications(userId: number): Promise<Notification[]>;
-  createNotification(notification: InsertNotification): Promise<Notification>;
-  markNotificationAsRead(id: number): Promise<boolean>;
-  getUnreadNotificationCount(userId: number): Promise<number>;
+  getUserNotifications(userId: string): Promise<INotification[]>;
+  createNotification(notification: InsertNotification): Promise<INotification>;
+  markNotificationAsRead(id: string): Promise<boolean>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
 
   sessionStore: any;
 }
 
-export class DatabaseStorage implements IStorage {
+export class MongoDBStorage implements IStorage {
   sessionStore: any;
 
   constructor() {
-    this.sessionStore = new PostgresSessionStore({ 
-      pool, 
-      createTableIfMissing: true 
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000, // 24 hours
     });
   }
 
   // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+  async getUser(id: string): Promise<IUser | undefined> {
+    try {
+      const user = await User.findById(id).populate('companyId');
+      return user || undefined;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      return undefined;
+    }
   }
 
-  async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user || undefined;
+  async getUserByEmail(email: string): Promise<IUser | undefined> {
+    try {
+      const user = await User.findOne({ email }).populate('companyId');
+      return user || undefined;
+    } catch (error) {
+      console.error('Error getting user by email:', error);
+      return undefined;
+    }
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values(insertUser)
-      .returning();
-    return user;
+  async createUser(insertUser: InsertUser): Promise<IUser> {
+    try {
+      const userData = {
+        ...insertUser,
+        companyId: insertUser.companyId ? new mongoose.Types.ObjectId(insertUser.companyId) : undefined
+      };
+      const user = new User(userData);
+      await user.save();
+      return user;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw error;
+    }
   }
 
-  async updateUser(id: number, updates: Partial<InsertUser>): Promise<User | undefined> {
-    const [user] = await db
-      .update(users)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning();
-    return user || undefined;
+  async updateUser(id: string, updates: Partial<InsertUser>): Promise<IUser | undefined> {
+    try {
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const user = await User.findByIdAndUpdate(id, updateData, { new: true });
+      return user || undefined;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      return undefined;
+    }
   }
 
-  async updateUserLastActive(id: number): Promise<void> {
-    await db
-      .update(users)
-      .set({ lastActiveAt: new Date() })
-      .where(eq(users.id, id));
+  async updateUserLastActive(id: string): Promise<void> {
+    try {
+      await User.findByIdAndUpdate(id, { lastActiveAt: new Date() });
+    } catch (error) {
+      console.error('Error updating user last active:', error);
+    }
   }
 
   // Company methods
-  async getCompany(id: number): Promise<Company | undefined> {
-    const [company] = await db.select().from(companies).where(eq(companies.id, id));
-    return company || undefined;
+  async getCompany(id: string): Promise<ICompany | undefined> {
+    try {
+      const company = await Company.findById(id);
+      return company || undefined;
+    } catch (error) {
+      console.error('Error getting company:', error);
+      return undefined;
+    }
   }
 
-  async createCompany(insertCompany: InsertCompany): Promise<Company> {
-    const [company] = await db
-      .insert(companies)
-      .values(insertCompany)
-      .returning();
-    return company;
+  async createCompany(insertCompany: InsertCompany): Promise<ICompany> {
+    try {
+      const company = new Company(insertCompany);
+      await company.save();
+      return company;
+    } catch (error) {
+      console.error('Error creating company:', error);
+      throw error;
+    }
   }
 
-  async updateCompany(id: number, updates: Partial<InsertCompany>): Promise<Company | undefined> {
-    const [company] = await db
-      .update(companies)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(companies.id, id))
-      .returning();
-    return company || undefined;
+  async updateCompany(id: string, updates: Partial<InsertCompany>): Promise<ICompany | undefined> {
+    try {
+      const company = await Company.findByIdAndUpdate(id, { ...updates, updatedAt: new Date() }, { new: true });
+      return company || undefined;
+    } catch (error) {
+      console.error('Error updating company:', error);
+      return undefined;
+    }
   }
 
-  async getCompanyUsers(companyId: number): Promise<User[]> {
-    return await db.select().from(users).where(eq(users.companyId, companyId));
+  async getCompanyUsers(companyId: string): Promise<IUser[]> {
+    try {
+      const users = await User.find({ companyId: new mongoose.Types.ObjectId(companyId) });
+      return users;
+    } catch (error) {
+      console.error('Error getting company users:', error);
+      return [];
+    }
   }
 
   // Integration methods
-  async getCompanyIntegrations(companyId: number): Promise<Integration[]> {
-    return await db.select().from(integrations).where(eq(integrations.companyId, companyId));
+  async getCompanyIntegrations(companyId: string): Promise<IIntegration[]> {
+    try {
+      const integrations = await Integration.find({ companyId: new mongoose.Types.ObjectId(companyId) });
+      return integrations;
+    } catch (error) {
+      console.error('Error getting company integrations:', error);
+      return [];
+    }
   }
 
-  async getIntegration(id: number): Promise<Integration | undefined> {
-    const [integration] = await db.select().from(integrations).where(eq(integrations.id, id));
-    return integration || undefined;
+  async getIntegration(id: string): Promise<IIntegration | undefined> {
+    try {
+      const integration = await Integration.findById(id);
+      return integration || undefined;
+    } catch (error) {
+      console.error('Error getting integration:', error);
+      return undefined;
+    }
   }
 
-  async createIntegration(insertIntegration: InsertIntegration): Promise<Integration> {
-    const [integration] = await db
-      .insert(integrations)
-      .values(insertIntegration)
-      .returning();
-    return integration;
+  async createIntegration(insertIntegration: InsertIntegration): Promise<IIntegration> {
+    try {
+      const integrationData = {
+        ...insertIntegration,
+        companyId: new mongoose.Types.ObjectId(insertIntegration.companyId)
+      };
+      const integration = new Integration(integrationData);
+      await integration.save();
+      return integration;
+    } catch (error) {
+      console.error('Error creating integration:', error);
+      throw error;
+    }
   }
 
-  async updateIntegration(id: number, updates: Partial<InsertIntegration>): Promise<Integration | undefined> {
-    const [integration] = await db
-      .update(integrations)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(integrations.id, id))
-      .returning();
-    return integration || undefined;
+  async updateIntegration(id: string, updates: Partial<InsertIntegration>): Promise<IIntegration | undefined> {
+    try {
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const integration = await Integration.findByIdAndUpdate(id, updateData, { new: true });
+      return integration || undefined;
+    } catch (error) {
+      console.error('Error updating integration:', error);
+      return undefined;
+    }
   }
 
-  async deleteIntegration(id: number): Promise<boolean> {
-    const result = await db.delete(integrations).where(eq(integrations.id, id));
-    return (result.rowCount || 0) > 0;
+  async deleteIntegration(id: string): Promise<boolean> {
+    try {
+      const result = await Integration.findByIdAndDelete(id);
+      return !!result;
+    } catch (error) {
+      console.error('Error deleting integration:', error);
+      return false;
+    }
   }
 
   // KPI methods
-  async getCompanyKpiMetrics(companyId: number): Promise<KpiMetric[]> {
-    return await db.select().from(kpiMetrics).where(eq(kpiMetrics.companyId, companyId));
+  async getCompanyKpiMetrics(companyId: string): Promise<IKpiMetric[]> {
+    try {
+      const kpiMetrics = await KpiMetric.find({ companyId: new mongoose.Types.ObjectId(companyId) });
+      return kpiMetrics;
+    } catch (error) {
+      console.error('Error getting company KPI metrics:', error);
+      return [];
+    }
   }
 
-  async createKpiMetric(insertMetric: InsertKpiMetric): Promise<KpiMetric> {
-    const [metric] = await db
-      .insert(kpiMetrics)
-      .values(insertMetric)
-      .returning();
-    return metric;
+  async createKpiMetric(insertMetric: InsertKpiMetric): Promise<IKpiMetric> {
+    try {
+      const metricData = {
+        ...insertMetric,
+        companyId: new mongoose.Types.ObjectId(insertMetric.companyId)
+      };
+      const metric = new KpiMetric(metricData);
+      await metric.save();
+      return metric;
+    } catch (error) {
+      console.error('Error creating KPI metric:', error);
+      throw error;
+    }
   }
 
-  async updateKpiMetric(id: number, updates: Partial<InsertKpiMetric>): Promise<KpiMetric | undefined> {
-    const [metric] = await db
-      .update(kpiMetrics)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(kpiMetrics.id, id))
-      .returning();
-    return metric || undefined;
+  async updateKpiMetric(id: string, updates: Partial<InsertKpiMetric>): Promise<IKpiMetric | undefined> {
+    try {
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const metric = await KpiMetric.findByIdAndUpdate(id, updateData, { new: true });
+      return metric || undefined;
+    } catch (error) {
+      console.error('Error updating KPI metric:', error);
+      return undefined;
+    }
   }
 
   // Chart data methods
-  async getCompanyChartData(companyId: number, chartType?: string): Promise<ChartData[]> {
-    if (chartType) {
-      return await db
-        .select()
-        .from(chartData)
-        .where(and(eq(chartData.companyId, companyId), eq(chartData.chartType, chartType)));
+  async getCompanyChartData(companyId: string, chartType?: string): Promise<IChartData[]> {
+    try {
+      const filter: any = { companyId: new mongoose.Types.ObjectId(companyId) };
+      if (chartType) {
+        filter.chartType = chartType;
+      }
+      const chartData = await ChartData.find(filter).sort({ date: 1 });
+      return chartData;
+    } catch (error) {
+      console.error('Error getting company chart data:', error);
+      return [];
     }
-    
-    return await db.select().from(chartData).where(eq(chartData.companyId, companyId));
   }
 
-  async createChartData(insertData: InsertChartData): Promise<ChartData> {
-    const [data] = await db
-      .insert(chartData)
-      .values(insertData)
-      .returning();
-    return data;
+  async createChartData(insertData: InsertChartData): Promise<IChartData> {
+    try {
+      const chartDataDoc = {
+        ...insertData,
+        companyId: new mongoose.Types.ObjectId(insertData.companyId)
+      };
+      const data = new ChartData(chartDataDoc);
+      await data.save();
+      return data;
+    } catch (error) {
+      console.error('Error creating chart data:', error);
+      throw error;
+    }
   }
 
-  async getRevenueChartData(companyId: number, days: number = 30): Promise<ChartData[]> {
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-    
-    return await db
-      .select()
-      .from(chartData)
-      .where(
-        and(
-          eq(chartData.companyId, companyId),
-          eq(chartData.chartType, 'revenue')
-        )
-      )
-      .orderBy(chartData.date);
+  async getRevenueChartData(companyId: string, days: number = 30): Promise<IChartData[]> {
+    try {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const chartData = await ChartData.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        chartType: 'revenue',
+        date: { $gte: startDate }
+      }).sort({ date: 1 });
+      
+      return chartData;
+    } catch (error) {
+      console.error('Error getting revenue chart data:', error);
+      return [];
+    }
   }
 
-  async getUserChartData(companyId: number): Promise<ChartData[]> {
-    return await db
-      .select()
-      .from(chartData)
-      .where(
-        and(
-          eq(chartData.companyId, companyId),
-          eq(chartData.chartType, 'users')
-        )
-      );
+  async getUserChartData(companyId: string): Promise<IChartData[]> {
+    try {
+      const chartData = await ChartData.find({
+        companyId: new mongoose.Types.ObjectId(companyId),
+        chartType: 'users'
+      }).sort({ date: 1 });
+      
+      return chartData;
+    } catch (error) {
+      console.error('Error getting user chart data:', error);
+      return [];
+    }
   }
 
   // AI recommendations methods
-  async getCompanyAiRecommendations(companyId: number): Promise<AiRecommendation[]> {
-    return await db
-      .select()
-      .from(aiRecommendations)
-      .where(eq(aiRecommendations.companyId, companyId))
-      .orderBy(desc(aiRecommendations.confidence));
+  async getCompanyAiRecommendations(companyId: string): Promise<IAiRecommendation[]> {
+    try {
+      const recommendations = await AiRecommendation.find({ 
+        companyId: new mongoose.Types.ObjectId(companyId) 
+      }).sort({ confidence: -1 });
+      return recommendations;
+    } catch (error) {
+      console.error('Error getting company AI recommendations:', error);
+      return [];
+    }
   }
 
-  async createAiRecommendation(insertRecommendation: InsertAiRecommendation): Promise<AiRecommendation> {
-    const [recommendation] = await db
-      .insert(aiRecommendations)
-      .values(insertRecommendation)
-      .returning();
-    return recommendation;
+  async createAiRecommendation(insertRecommendation: InsertAiRecommendation): Promise<IAiRecommendation> {
+    try {
+      const recommendationData = {
+        ...insertRecommendation,
+        companyId: new mongoose.Types.ObjectId(insertRecommendation.companyId)
+      };
+      const recommendation = new AiRecommendation(recommendationData);
+      await recommendation.save();
+      return recommendation;
+    } catch (error) {
+      console.error('Error creating AI recommendation:', error);
+      throw error;
+    }
   }
 
-  async updateAiRecommendation(id: number, updates: Partial<InsertAiRecommendation>): Promise<AiRecommendation | undefined> {
-    const [recommendation] = await db
-      .update(aiRecommendations)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(aiRecommendations.id, id))
-      .returning();
-    return recommendation || undefined;
+  async updateAiRecommendation(id: string, updates: Partial<InsertAiRecommendation>): Promise<IAiRecommendation | undefined> {
+    try {
+      const updateData = {
+        ...updates,
+        companyId: updates.companyId ? new mongoose.Types.ObjectId(updates.companyId) : undefined,
+        updatedAt: new Date()
+      };
+      const recommendation = await AiRecommendation.findByIdAndUpdate(id, updateData, { new: true });
+      return recommendation || undefined;
+    } catch (error) {
+      console.error('Error updating AI recommendation:', error);
+      return undefined;
+    }
   }
 
   // Activity methods
-  async getCompanyActivities(companyId: number, limit: number = 10): Promise<Activity[]> {
-    return await db
-      .select()
-      .from(activities)
-      .where(eq(activities.companyId, companyId))
-      .orderBy(desc(activities.createdAt))
+  async getCompanyActivities(companyId: string, limit: number = 10): Promise<IActivity[]> {
+    try {
+      const activities = await Activity.find({ 
+        companyId: new mongoose.Types.ObjectId(companyId) 
+      })
+      .populate('userId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
       .limit(limit);
+      
+      return activities;
+    } catch (error) {
+      console.error('Error getting company activities:', error);
+      return [];
+    }
   }
 
-  async createActivity(insertActivity: InsertActivity): Promise<Activity> {
-    const [activity] = await db
-      .insert(activities)
-      .values(insertActivity)
-      .returning();
-    return activity;
+  async createActivity(insertActivity: InsertActivity): Promise<IActivity> {
+    try {
+      const activityData = {
+        ...insertActivity,
+        companyId: new mongoose.Types.ObjectId(insertActivity.companyId),
+        userId: new mongoose.Types.ObjectId(insertActivity.userId)
+      };
+      const activity = new Activity(activityData);
+      await activity.save();
+      return activity;
+    } catch (error) {
+      console.error('Error creating activity:', error);
+      throw error;
+    }
   }
 
   // Notification methods
-  async getUserNotifications(userId: number): Promise<Notification[]> {
-    return await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt));
+  async getUserNotifications(userId: string): Promise<INotification[]> {
+    try {
+      const notifications = await Notification.find({ 
+        userId: new mongoose.Types.ObjectId(userId) 
+      }).sort({ createdAt: -1 });
+      
+      return notifications;
+    } catch (error) {
+      console.error('Error getting user notifications:', error);
+      return [];
+    }
   }
 
-  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
-    const [notification] = await db
-      .insert(notifications)
-      .values(insertNotification)
-      .returning();
-    return notification;
+  async createNotification(insertNotification: InsertNotification): Promise<INotification> {
+    try {
+      const notificationData = {
+        ...insertNotification,
+        userId: new mongoose.Types.ObjectId(insertNotification.userId)
+      };
+      const notification = new Notification(notificationData);
+      await notification.save();
+      return notification;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
   }
 
-  async markNotificationAsRead(id: number): Promise<boolean> {
-    const result = await db
-      .update(notifications)
-      .set({ isRead: true })
-      .where(eq(notifications.id, id));
-    return (result.rowCount || 0) > 0;
+  async markNotificationAsRead(id: string): Promise<boolean> {
+    try {
+      const result = await Notification.findByIdAndUpdate(id, { 
+        isRead: true, 
+        readAt: new Date() 
+      });
+      return !!result;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      return false;
+    }
   }
 
-  async getUnreadNotificationCount(userId: number): Promise<number> {
-    const [result] = await db
-      .select({ count: count() })
-      .from(notifications)
-      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
-    return result.count;
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    try {
+      const count = await Notification.countDocuments({ 
+        userId: new mongoose.Types.ObjectId(userId), 
+        isRead: false 
+      });
+      return count;
+    } catch (error) {
+      console.error('Error getting unread notification count:', error);
+      return 0;
+    }
   }
 }
 
-export const storage = new DatabaseStorage();
+export const storage = new MongoDBStorage();
