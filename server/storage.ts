@@ -8,12 +8,17 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, sql, count, lte } from "drizzle-orm";
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
+import dotenv from "dotenv";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
 // Direct SQL connection for problematic queries
-const directSql = neon(process.env.DATABASE_URL!);
+dotenv.config();
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 const MemoryStore = createMemoryStore(session);
 
@@ -78,43 +83,58 @@ export class PostgreSQLStorage implements IStorage {
 
   // User methods
   async getUser(id: string): Promise<IUser | undefined> {
-    try {
-      const result = await directSql`
-        SELECT * FROM users WHERE id = ${id} LIMIT 1
-      `;
-      return result[0] as IUser || undefined;
-    } catch (error) {
-      console.error('Error getting user:', error);
-      return undefined;
-    }
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE id = $1 LIMIT 1",
+      [id]
+    );
+    return result.rows[0] as IUser || undefined;
+  } catch (error) {
+    console.error("Error getting user:", error);
+    return undefined;
   }
+}
+
 
   async getUserByEmail(email: string): Promise<IUser | undefined> {
-    try {
-      const result = await directSql`
-        SELECT * FROM users WHERE email = ${email} LIMIT 1
-      `;
-      return result[0] as IUser || undefined;
-    } catch (error) {
-      console.error('Error getting user by email:', error);
-      return undefined;
-    }
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email = $1 LIMIT 1",
+      [email]
+    );
+    return result.rows[0] as IUser || undefined;
+  } catch (error) {
+    console.error("Error getting user by email:", error);
+    return undefined;
   }
+}
+
 
   async createUser(insertUser: InsertUser): Promise<IUser> {
-    try {
-      const result = await directSql`
-        INSERT INTO users (email, password, first_name, last_name, job_title, role, is_active, company_id)
-        VALUES (${insertUser.email}, ${insertUser.password}, ${insertUser.firstName}, ${insertUser.lastName}, 
-                ${insertUser.jobTitle}, ${insertUser.role}, ${insertUser.isActive}, ${insertUser.companyId})
-        RETURNING *
-      `;
-      return result[0] as IUser;
-    } catch (error) {
-      console.error('Error creating user:', error);
-      throw error;
-    }
+  try {
+    const result = await pool.query(
+      `INSERT INTO users 
+        (email, password, first_name, last_name, job_title, role, is_active, company_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING *`,
+      [
+        insertUser.email,
+        insertUser.password,
+        insertUser.firstName,
+        insertUser.lastName,
+        insertUser.jobTitle,
+        insertUser.role,
+        insertUser.isActive,
+        insertUser.companyId,
+      ]
+    );
+    return result.rows[0] as IUser;
+  } catch (error) {
+    console.error("Error creating user:", error);
+    throw error;
   }
+}
+
 
   async updateUser(id: string, updates: Partial<InsertUser>): Promise<IUser | undefined> {
     try {
@@ -151,17 +171,20 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   async createCompany(insertCompany: InsertCompany): Promise<ICompany> {
-    try {
-      const result = await directSql`
-        INSERT INTO companies (name) VALUES (${insertCompany.name})
-        RETURNING id, name, industry, website, description, logo, settings, created_at, updated_at
-      `;
-      return result[0] as ICompany;
-    } catch (error) {
-      console.error('Error creating company:', error);
-      throw error;
-    }
+  try {
+    const result = await pool.query(
+      `INSERT INTO companies (name)
+       VALUES ($1)
+       RETURNING id, name, industry, website, description, logo, settings, created_at, updated_at`,
+      [insertCompany.name]
+    );
+    return result.rows[0] as ICompany;
+  } catch (error) {
+    console.error("Error creating company:", error);
+    throw error;
   }
+}
+
 
   async updateCompany(id: string, updates: Partial<InsertCompany>): Promise<ICompany | undefined> {
     try {
@@ -409,19 +432,26 @@ export class PostgreSQLStorage implements IStorage {
     }
   }
 
-  async createActivity(insertActivity: InsertActivity): Promise<IActivity> {
-    try {
-      const result = await directSql`
-        INSERT INTO activities (company_id, user_id, type, description)
-        VALUES (${insertActivity.companyId}, ${insertActivity.userId}, ${insertActivity.type}, ${insertActivity.description})
-        RETURNING *
-      `;
-      return result[0] as IActivity;
-    } catch (error) {
-      console.error('Error creating activity:', error);
-      throw error;
-    }
+ async createActivity(insertActivity: InsertActivity): Promise<IActivity> {
+  try {
+    const result = await pool.query(
+      `INSERT INTO activities (company_id, user_id, type, description)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [
+        insertActivity.companyId,
+        insertActivity.userId,
+        insertActivity.type,
+        insertActivity.description,
+      ]
+    );
+    return result.rows[0] as IActivity;
+  } catch (error) {
+    console.error("Error creating activity:", error);
+    throw error;
   }
+}
+
 
   // Notification methods
   async getUserNotifications(userId: string): Promise<INotification[]> {
@@ -439,18 +469,25 @@ export class PostgreSQLStorage implements IStorage {
   }
 
   async createNotification(insertNotification: InsertNotification): Promise<INotification> {
-    try {
-      const result = await directSql`
-        INSERT INTO notifications (user_id, title, message, type)
-        VALUES (${insertNotification.userId}, ${insertNotification.title}, ${insertNotification.message}, ${insertNotification.type})
-        RETURNING *
-      `;
-      return result[0] as INotification;
-    } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
-    }
+  try {
+    const result = await pool.query(
+      `INSERT INTO notifications (user_id, title, message, type)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [
+        insertNotification.userId,
+        insertNotification.title,
+        insertNotification.message,
+        insertNotification.type,
+      ]
+    );
+    return result.rows[0] as INotification;
+  } catch (error) {
+    console.error("Error creating notification:", error);
+    throw error;
   }
+}
+
 
   async markNotificationAsRead(id: string): Promise<boolean> {
     try {
